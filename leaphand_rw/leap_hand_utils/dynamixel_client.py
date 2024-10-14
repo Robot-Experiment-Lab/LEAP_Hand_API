@@ -285,7 +285,9 @@ class DynamixelClient:
             value = signed_to_unsigned(int(desired_pos), size=size)
             value = value.to_bytes(size, byteorder='little')
             success = sync_writer.addParam(motor_id, value)
+            # print(success)
             if not success:
+                print('Failed to add param for motor ID: {}'.format(motor_id))
                 errored_ids.append(motor_id)
 
         if errored_ids:
