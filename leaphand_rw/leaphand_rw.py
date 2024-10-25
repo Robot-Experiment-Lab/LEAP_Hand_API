@@ -150,8 +150,13 @@ class LeapNode:
                 self.dxl_client = DynamixelClient(motors, '/dev/ttyUSB1', 3000000)
                 self.dxl_client.connect()
             except Exception:
-                self.dxl_client = DynamixelClient(motors, '/dev/ttyUSB2', 3000000)
-                self.dxl_client.connect()
+                try:
+                    self.dxl_client = DynamixelClient(motors, '/dev/ttyUSB2', 3000000)
+                    self.dxl_client.connect()
+                except Exception:
+                    self.dxl_client = DynamixelClient(motors, '/dev/ttyUSB3', 3000000)
+                    self.dxl_client.connect()
+                
         
         self.prev_pos = self.pos = self.curr_pos = self.dxl_client.read_pos() # let LEAP init to current position
         
