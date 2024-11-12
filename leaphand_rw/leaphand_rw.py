@@ -99,20 +99,22 @@ def min_jerk_interpolator_with_alpha(waypt_joint_values_np, planner_timestep, cm
 ########################################################
 class LeapNode:
     def __init__(self,
-                #  kP=1000,
-                #  kD=1500,
-                #  curr_lim=200,
                 kP=600,
-                 kD=200,
-                 curr_lim=150,
-                 cmd_timestep=1.0/50.0,):
+                kI = 0,
+                kD = 200,
+                curr_lim=150,
+                # kP=1000,
+                # kD=100,
+                # curr_lim=150,
+                cmd_timestep=1.0/50.0,
+                torque_enable = True):
         self.kP = kP
-        self.kI = 0
+        self.kI = kI
         self.kD = kD
         self.curr_lim = curr_lim
         self.cmd_timestep = cmd_timestep
         self.pos_lim = 0.1
-
+        self.torque_enable = torque_enable
         # right hand
         # self.open_pos = np.array([1.57079633, 3.14159265, 3.14159265, 3.14159265, 
         #                           1.57079633, 3.14159265, 3.14159265, 3.14159265, 
@@ -143,18 +145,18 @@ class LeapNode:
         self.motors = motors = [0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15]
         
         try:
-            self.dxl_client = DynamixelClient(motors, '/dev/ttyUSB0', 3000000)
+            self.dxl_client = DynamixelClient(motors, '/dev/ttyUSB0', 4000000)
             self.dxl_client.connect()
         except Exception:
             try:
-                self.dxl_client = DynamixelClient(motors, '/dev/ttyUSB1', 3000000)
+                self.dxl_client = DynamixelClient(motors, '/dev/ttyUSB1', 4000000)
                 self.dxl_client.connect()
             except Exception:
                 try:
-                    self.dxl_client = DynamixelClient(motors, '/dev/ttyUSB2', 3000000)
+                    self.dxl_client = DynamixelClient(motors, '/dev/ttyUSB2', 4000000)
                     self.dxl_client.connect()
                 except Exception:
-                    self.dxl_client = DynamixelClient(motors, '/dev/ttyUSB3', 3000000)
+                    self.dxl_client = DynamixelClient(motors, '/dev/ttyUSB3', 4000000)
                     self.dxl_client.connect()
                 
         
@@ -162,7 +164,7 @@ class LeapNode:
         
         #Enables position-current control mode and the default parameters, it commands a position and then caps the current so the motors don't overload
         self.dxl_client.sync_write(motors, np.ones(len(motors))*5, 11, 1)
-        self.dxl_client.set_torque_enabled(motors, True)
+        self.dxl_client.set_torque_enabled(motors, self.torque_enable)
         self.dxl_client.sync_write(motors, np.ones(len(motors)) * self.kP, 84, 2) # Pgain stiffness     
         self.dxl_client.sync_write([3, 7, 14], np.ones(3) * (self.kP * 0.75), 84, 2) # Pgain stiffness for side to side should be a bit less
         self.dxl_client.sync_write(motors, np.ones(len(motors)) * self.kI, 82, 2) # Igain
