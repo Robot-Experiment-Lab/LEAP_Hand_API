@@ -4,43 +4,62 @@ import numpy as np
 from leap_hand_utils.dynamixel_client import *
 import leap_hand_utils.leap_hand_utils as lhu
 import time
-#######################################################
-"""This can control and query the LEAP Hand
 
-I recommend you only query when necessary and below 90 samples a second.  Each of position, velociy and current costs one sample, so you can sample all three at 30 hz or one at 90hz.
-
-#Allegro hand conventions:
-#0.0 is the all the way out beginning pose, and it goes positive as the fingers close more and more
-#http://wiki.wonikrobotics.com/AllegroHandWiki/index.php/Joint_Zeros_and_Directions_Setup_Guide I belive the black and white figure (not blue motors) is the zero position, and the + is the correct way around.  LEAP Hand in my videos start at zero position and that looks like that figure.
-
-#LEAP hand conventions:
-#180 is flat out for the index, middle, ring, finger MCPs.
-#Applying a positive angle closes the other joints more and more.
-
-"""
-########################################################
 class LeapNode:
-    def __init__(self):
+    def __init__(self, left=False):
         ####Some parameters
         # self.ema_amount = float(rospy.get_param('/leaphand_node/ema', '1.0')) #take only current
-        self.kP = 600
+        self.kP = 700
         self.kI = 0
-        self.kD = 200
-        self.curr_lim = 500
-        self.prev_pos = self.pos = self.curr_pos = lhu.allegro_to_LEAPhand(np.zeros(16))
-           
+        self.kD = 300
+        self.curr_lim = 100
+        self.lefthand = left
+        if left:
+            pos = lhu.allegro_to_LEAPhand(np.zeros(16))
+            pos = self.right_pose_to_left(pos)
+            print(f'Init leaphand to left init pose: {pos}')
+        else:
+            pos = lhu.allegro_to_LEAPhand(np.zeros(16))
+            print(f'Init leaphand to right init pose: {pos}')
+        self.prev_pos = self.pos = self.curr_pos = pos
+
         #You can put the correct port here or have the node auto-search for a hand at the first 3 ports.
         self.motors = motors = [0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15]
-        try:
-            self.dxl_client = DynamixelClient(motors, '/dev/ttyUSB0', 4000000)
-            self.dxl_client.connect()
-        except Exception:
+        if left:
             try:
-                self.dxl_client = DynamixelClient(motors, '/dev/ttyUSB1', 4000000)
+                self.dxl_client = DynamixelClient(motors, '/dev/ttyUSB2', 3000000)
                 self.dxl_client.connect()
+                print('Connected to /dev/ttyUSB2')
             except Exception:
-                self.dxl_client = DynamixelClient(motors, 'COM13', 4000000)
+                try:
+                    self.dxl_client = DynamixelClient(motors, '/dev/ttyUSB1', 3000000)
+                    self.dxl_client.connect()
+                    print('Connected to /dev/ttyUSB1')
+                except Exception:
+                    try:
+                        self.dxl_client = DynamixelClient(motors, '/dev/ttyUSB0', 3000000)
+                        self.dxl_client.connect()
+                        print('Connected to /dev/ttyUSB0')
+                    except Exception:
+                        pass
+
+        else:
+            try:
+                self.dxl_client = DynamixelClient(motors, '/dev/ttyUSB2', 3000000)
                 self.dxl_client.connect()
+                print('Connected to /dev/ttyUSB2')
+            except Exception:
+                try:
+                    self.dxl_client = DynamixelClient(motors, '/dev/ttyUSB1', 3000000)
+                    self.dxl_client.connect()
+                    print('Connected to /dev/ttyUSB1')
+                except Exception:
+                    try:
+                        self.dxl_client = DynamixelClient(motors, '/dev/ttyUSB0', 3000000)
+                        self.dxl_client.connect()
+                        print('Connected to /dev/ttyUSB0')
+                    except Exception:
+                        pass
         #Enables position-current control mode and the default parameters, it commands a position and then caps the current so the motors don't overload
         self.dxl_client.sync_write(motors, np.ones(len(motors))*5, 11, 1)
         self.dxl_client.set_torque_enabled(motors, True)
@@ -53,16 +72,27 @@ class LeapNode:
         self.dxl_client.sync_write(motors, np.ones(len(motors)) * self.curr_lim, 102, 2)
         self.dxl_client.write_desired_pos(self.motors, self.curr_pos)
 
+    def right_pose_to_left(self, pose):
+        for i in [0,4,8]:
+            pose[i] = 6.28 - pose[i]
+        pose[12] = 9.42 - pose[12]
+        pose[13] = 9.42 - pose[13]
+        return pose
+
     #Receive LEAP pose and directly control the robot
     def set_leap(self, pose):
         self.prev_pos = self.curr_pos
         self.curr_pos = np.array(pose)
+        if self.lefthand:
+            self.curr_pos = self.right_pose_to_left(self.curr_pos)
         self.dxl_client.write_desired_pos(self.motors, self.curr_pos)
     #allegro compatibility
     def set_allegro(self, pose):
         pose = lhu.allegro_to_LEAPhand(pose, zeros=False)
         self.prev_pos = self.curr_pos
         self.curr_pos = np.array(pose)
+        if self.lefthand:
+            self.curr_pos = self.right_pose_to_left(self.curr_pos)
         self.dxl_client.write_desired_pos(self.motors, self.curr_pos)
     #Sim compatibility, first read the sim value in range [-1,1] and then convert to leap
     def set_ones(self, pose):
@@ -79,14 +109,3 @@ class LeapNode:
     #read current
     def read_cur(self):
         return self.dxl_client.read_cur()
-#init the node
-def main(**kwargs):
-    leap_hand = LeapNode()
-    while True:
-        leap_hand.set_allegro(np.zeros(16))
-        print("Position: " + str(leap_hand.read_pos()))
-        time.sleep(0.03)
-
-
-if __name__ == "__main__":
-    main()
