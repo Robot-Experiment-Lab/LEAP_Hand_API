@@ -101,21 +101,21 @@ class LeapNode:
         self.kP = 600
         self.kI = 0
         self.kD = 200
-        self.curr_lim = 150
+        self.curr_lim = 350
         self.prev_pos = self.pos = self.curr_pos = lhu.allegro_to_LEAPhand(np.zeros(16))
         self.torque_enable = torque_enable
            
         #You can put the correct port here or have the node auto-search for a hand at the first 3 ports.
         self.motors = motors = [0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15]
         try:
-            self.dxl_client = DynamixelClient(motors, '/dev/ttyUSB0', 4000000)
+            self.dxl_client = DynamixelClient(motors, '/dev/ttyUSB0', 3000000)
             self.dxl_client.connect()
         except Exception:
             try:
-                self.dxl_client = DynamixelClient(motors, '/dev/ttyUSB1', 4000000)
+                self.dxl_client = DynamixelClient(motors, '/dev/ttyUSB1', 3000000)
                 self.dxl_client.connect()
             except Exception:
-                self.dxl_client = DynamixelClient(motors, 'COM13', 4000000)
+                self.dxl_client = DynamixelClient(motors, 'COM13', 3000000)
                 self.dxl_client.connect()
         #Enables position-current control mode and the default parameters, it commands a position and then caps the current so the motors don't overload
         self.dxl_client.sync_write(motors, np.ones(len(motors))*5, 11, 1)
